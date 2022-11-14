@@ -1,0 +1,855 @@
+import java.awt.Graphics;
+import java.awt.image.BufferedImage;
+import javax.swing.JPanel;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
+import java.awt.Image;
+import java.awt.image.BufferedImage;
+import javax.imageio.ImageIO;
+import java.io.File;
+import java.awt.Color;
+import java.awt.Graphics;
+import java.awt.image.BufferedImage;
+import java.awt.Graphics;
+import java.awt.image.BufferedImage;
+import javax.swing.JPanel;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
+import java.awt.Image;
+import java.awt.image.BufferedImage;
+import javax.imageio.ImageIO;
+import java.io.File;
+import java.awt.Color;
+import java.util.*;
+import java.awt.event.MouseListener;
+import java.awt.event.MouseEvent;
+import java.awt.event.ActionListener;
+import java.awt.event.ActionEvent;
+import java.awt.event.KeyListener;
+import java.awt.event.KeyEvent;
+import javax.swing.JFrame;
+import java.awt.Toolkit;
+
+public class Game extends JFrame
+{
+	Model model;
+	Controller controller;
+	View view;
+	Brick brick;
+	Link link;
+	
+
+	public Game()
+	{
+		model = new Model();
+		controller = new Controller(model);
+		view = new View(controller, model);
+		this.setTitle("A4 - Link Collision");
+		this.setSize(512, 535);
+		this.setFocusable(true);
+		this.getContentPane().add(view);
+		this.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+		this.setVisible(true);
+		view.addMouseListener(controller);
+		this.addKeyListener(controller);
+	} 
+
+	public static void main(String[] args)
+	{
+		Game g = new Game();
+		g.run();
+	}
+	
+	
+
+	public void run()
+	{
+		while(true) {
+			controller.update();
+			model.update();
+			view.repaint(); // Indirectly calls View.paint
+			Toolkit.getDefaultToolkit().sync(); // Updates screen
+	
+			// Go to sleep for 5
+			try {
+				Thread.sleep(25);
+			} 
+			catch(Exception e) {
+				e.printStackTrace();
+				System.exit(1);
+			}
+		}
+	}
+	
+}
+
+
+
+class Controller implements ActionListener, MouseListener, KeyListener
+{
+	View view;
+	Model model;
+	Brick brick;
+	Pot pot;
+	
+	// ______
+	// __x___
+	// _xxxx_
+	// _xxxx_
+	// ______
+	
+	boolean keyLeft;
+	boolean keyRight;
+	boolean keyUp;
+	boolean keyDown;
+	
+	boolean quitting = false;
+	boolean saving = false;
+	boolean load = false;
+	boolean editing = false;
+	boolean startup = true;
+	boolean placingPots = false;
+	boolean boomeranging = false;
+	
+	
+	Controller(Model m)
+	{
+			model = m;
+	}
+
+	void setView(View v)
+	{
+		view = v;
+	}
+
+
+	public void actionPerformed(ActionEvent e)
+	{
+	}
+
+	public void mousePressed(MouseEvent e)
+	{
+		if (editing) {getDestination(e.getX()+view.room_x, e.getY()+view.room_y);
+		}
+	}
+	
+	//This is necessary to my codes editing 
+	public void getDestination(int x, int y) {
+
+		//System.out.println(x + " " + y);
+		if (x < 0) {
+			x -= 50; // These essentially check if negative and slightly alter the algo for snap to
+						// grid
+		}
+		if (y < 0) {
+			y -= 50;
+		}
+
+		x = x / 50 * 50; // Converting x and y to multiples of 50
+		y = y / 50 * 50;
+
+		// Checking if a Brick exists or not and adding if not
+		if (!model.isSpriteThere(x, y)) {
+			if (!placingPots) {
+				System.out.println("placed brick");
+				Brick b = new Brick(x, y);
+				model.sprites.add(b);
+			}
+			if (placingPots) {
+				System.out.println("placed pot");
+				Pot p = new Pot(x,y);
+				model.sprites.add(p);
+			}
+			
+		}
+	}
+
+	public void mouseReleased(MouseEvent e) {    }
+	public void mouseEntered(MouseEvent e) {    }
+	public void mouseExited(MouseEvent e) {    }
+	public void mouseClicked(MouseEvent e) {
+		if(e.getY() < 100)
+		{
+			//System.out.println("break here");
+		}
+	}
+	
+	public void keyPressed(KeyEvent e)
+	{
+		switch(e.getKeyCode())
+		{
+			case KeyEvent.VK_D: keyRight = true; break;
+			case KeyEvent.VK_A: keyLeft = true; break;
+			case KeyEvent.VK_W: keyUp = true; break;
+			case KeyEvent.VK_X: keyDown = true; break;
+			case KeyEvent.VK_Q: quitting = true; break;
+			case KeyEvent.VK_ESCAPE: quitting = true; break;
+			case KeyEvent.VK_S: saving = true; break;
+			case KeyEvent.VK_L: load = true; break;
+			case KeyEvent.VK_CONTROL: boomeranging = false; break;
+			case KeyEvent.VK_P: 
+				if( placingPots) {placingPots = false; System.out.println("Placing bricks"); break; }
+				else { placingPots = true; System.out.println("Placing pots"); break; }
+			case KeyEvent.VK_E: {
+				if (editing) {editing = false; System.out.println("Playing"); break;}
+				else {editing = true; System.out.println("Editing"); break;} 
+			}
+		}
+	}
+
+	public void keyReleased(KeyEvent e)
+	{
+		switch(e.getKeyCode())
+		{
+			case KeyEvent.VK_D: keyRight = false; break;
+			case KeyEvent.VK_A: keyLeft = false; break;
+			case KeyEvent.VK_W: keyUp = false; break;
+			case KeyEvent.VK_X: keyDown = false; break;
+			case KeyEvent.VK_S: saving = false; break;
+			case KeyEvent.VK_L: load = false; break;
+			case KeyEvent.VK_CONTROL: boomeranging = true; break;
+			
+		}
+	}
+
+	public void keyTyped(KeyEvent e)	{
+		
+	}
+
+	//global link animation variables
+	int moving = 0;
+	
+
+	void update()
+	{
+		model.link.getPrevious();
+		
+		if(boomeranging) {
+			System.out.println("throwing 'rang");
+			model.sprites.add(new Boomerang(model.link.x+model.link.w/2,model.link.y+model.link.h/2,model.link.dir));
+			boomeranging = false; //(x+w/4, y+h/4)
+		}
+		
+		if(keyRight) {
+			if(moving >= 10) moving = 0;
+			
+				model.link.x += model.link.speed;
+				keyUp = false;
+				keyDown = false;
+				model.link.currImage = moving + 29;
+				moving+=1;
+	
+				if (model.link.x >= -10 && model.link.x <= 10) view.room_x =0;
+				if (model.link.x >= 490 && model.link.x <= 510) view.room_x = 500;
+				if (model.link.x >= 990 && model.link.x <= 1010) view.room_x = 1000;
+				model.link.dir = 1;
+		}
+		
+		if(keyLeft) {
+			if(moving >= 10) moving = 0;
+			
+				model.link.x -=model.link.speed;
+				keyUp = false;
+				keyDown = false;
+				model.link.currImage = moving + 13;
+				moving+=1;
+				
+				if (model.link.x >= -10 && model.link.x <= 10) view.room_x =-500;
+				if (model.link.x >= 490 && model.link.x <= 510) view.room_x=0;
+				if(model.link.x >= 990 && model.link.x <= 1010) view.room_x=500;
+				model.link.dir = 3;
+		}
+		
+		if(keyUp) {
+			if(moving >= 11) moving = 0;
+			
+				model.link.y-=model.link.speed;
+				keyLeft = false;
+				keyRight = false;
+				model.link.currImage = moving + 39;
+				moving+=1;
+				
+				if (model.link.y >= -10 && model.link.y <= 10) view.room_y =-500;
+				if (model.link.y >= 490 && model.link.y <= 510) view.room_y=0;
+				model.link.dir = 0;
+		}
+		
+		if(keyDown) {
+			if(moving >= 10) moving = 0;
+				model.link.y+=model.link.speed;
+				keyLeft = false;
+				keyRight = false;
+				model.link.currImage = moving + 3;
+				moving+=1;
+				model.link.dir = 2;
+				if (model.link.y >= -10 && model.link.y <= 10) view.room_y =0;
+				if (model.link.y >= 490 && model.link.y <= 510) view.room_y = 500;
+			
+		}
+		
+		
+		if(quitting) System.exit(0); //will quit your program's execution.
+		if(saving && editing) model.marshal().save("map.json");
+		if(load) {
+			Json j = Json.load("map.json");
+			j.save("temp.json");
+			model.unmarshal(j);
+		}
+		
+		//load in map on startup
+		if (startup) {
+			Json j = Json.load("map.json");
+			j.save("temp.json");
+			model.unmarshal(j);
+			startup = false;
+			System.out.println("File loaded");
+		}
+		
+	}
+	
+
+	
+	public static void pause(long timeInMilliSeconds) {
+
+	    long timestamp = System.currentTimeMillis();
+	    while (System.currentTimeMillis() < timestamp + timeInMilliSeconds);
+	}
+	
+	
+		
+}
+
+
+class Model {
+	ArrayList<Sprite> sprites;
+	Link link;
+	Controller controller;
+
+	Model() {
+		sprites = new ArrayList<Sprite>();
+		link = new Link(100, 100);
+		sprites.add(link);
+
+	}
+	
+	public void update() {
+		for (int i = 0; i < sprites.size(); i++) {
+			for(int j = 0; j < sprites.size(); j++) {
+				if(sprites.get(i).isPot() 
+				&& (sprites.get(j).isBrick() || sprites.get(j).isBoomerang())
+				&& checkCollision(sprites.get(i),sprites.get(j))) {
+					((Pot)sprites.get(i)).potBreak();
+				}
+				//code for boomerang collision
+				if(sprites.get(i).isBoomerang()){
+					if(i != j)
+						if (checkCollision(sprites.get(i),sprites.get(j)) && !sprites.get(j).isLink()) {
+							if(sprites.get(j).isPot())
+								((Pot)sprites.get(j)).potBreak();
+							sprites.get(i).isActive = false;
+						}
+					
+				}
+			}
+			if(!sprites.get(i).update())sprites.get(i).isActive = false;
+			if(!sprites.get(i).isActive) {
+				if(sprites.get(i).isPot()) {
+				}
+				sprites.remove(i); break;
+			}
+			if(!sprites.get(i).isLink()) {
+				if (checkCollision(sprites.get(i),link)) {
+					link.repelLink(sprites.get(i));
+					if(sprites.get(i).isPot()) 
+						((Pot)sprites.get(i)).potMovement(link);
+					}
+			}
+			sprites.get(i).update();
+		}
+
+	}
+//	public boolean checkCollision(Sprite sprite) {
+//		//System.out.println("sprite2s position is " + sprite2.x + " " + sprite2.y);
+//		if ((link.x + link.w < sprite.x 
+//			|| link.x > sprite.x + sprite.w) 
+//			|| (link.y < sprite.y - link.h 
+//			|| link.y - link.h > sprite.y)) {
+//			return false;
+//		}
+//		//System.out.println("colliding with brick at " + sprite.x + ", " + sprite.y);
+//		return true;
+//	}
+
+	public boolean checkCollision(Sprite sprite, Sprite sprite2) { //boomerang, brick
+//		System.out.println("sprite2s position is " + sprite2.x + " " + sprite2.y);
+		if ((sprite2.x + sprite2.w <= sprite.x 
+			|| sprite2.x >= sprite.x + sprite.w) 
+			|| (sprite2.y + sprite2.h <= sprite.y
+			|| sprite2.y >= sprite.y + sprite.h)) {
+			return false;
+		}
+		
+//		//FUN TROUBLESHOOTING THING YAYYYY
+//		System.out.print("colliding with ");
+//		if(sprite2.isPot())System.out.print("pot ");
+//		else if (sprite2.isBrick())System.out.print("brick");
+//		else if(sprite2.isBoomerang())System.out.print("boomerage");
+//		System.out.println(" at " + sprite.x + ", " + sprite.y);
+		return true;
+	}
+
+	
+	// Checking if a brick exists at the location and removing it if so
+	public boolean isSpriteThere(int x, int y) {
+		for (int i = 0; i < sprites.size(); i++) {
+			if (x == sprites.get(i).x && y == sprites.get(i).y) {
+				//System.out.println("There is already a brick at " + sprites.get(i).x + ", " + sprites.get(i).y);
+				if(sprites.get(i).isBrick() || sprites.get(i).isPot())
+					sprites.remove(i);
+				return true;
+			}
+		}
+		return false;
+	}
+
+	// Marshals this object into a JSON DOM
+	Json marshal() {
+		Json ob = Json.newObject();
+		Json tmpList = Json.newList();
+		ob.add("bricks", tmpList);
+		Json tmpListLink = Json.newList();
+		ob.add("link", tmpListLink);
+		Json tmpListPot = Json.newList();
+		ob.add("pots", tmpListPot);
+		
+		for (int i = 0; i < sprites.size(); i++) {
+			if(sprites.get(i).isBrick()) {
+//				System.out.println("brick works");
+				tmpList.add(sprites.get(i).marshal());
+			}
+			if(sprites.get(i).isPot()) {
+//				System.out.println("pot works");
+				tmpListPot.add(sprites.get(i).marshal());
+			}
+			if(sprites.get(i).isLink()) {
+				tmpListLink.add(sprites.get(i).marshal());
+			}
+		}
+		return ob;
+	}
+
+	// Unmarshalling constructor
+	void unmarshal(Json ob) {
+		sprites = new ArrayList<Sprite>();
+		sprites.add(link);
+		Json tmpList = ob.get("bricks");
+		for (int i = 0; i < tmpList.size(); i++)
+			sprites.add(new Brick(tmpList.get(i)));
+		Json tmpListPot = ob.get("pots");
+		for (int i = 0; i < tmpListPot.size(); i ++)
+			sprites.add(new Pot(tmpListPot.get(i)));
+
+	}
+
+}
+
+
+
+class View extends JPanel
+{
+
+	
+	View() {
+	}
+
+	Model model;
+	
+	//global variables for offset of room camera
+	int room_x=0;
+	int room_y=0; 
+	
+	View(Controller c, Model m) {
+		model = m;
+		
+		c.setView(this);
+
+		
+		
+		try {
+		} 
+		catch(Exception e) {
+			e.printStackTrace(System.err);
+			System.exit(1);
+		}
+	}
+
+	public void paintComponent(Graphics g) {
+		g.setColor(new Color(66, 34, 63)); //better color, less painful to eyes
+		g.fillRect(0, 0, this.getWidth(), this.getHeight());
+		for(int i = 0; i < model.sprites.size(); i++)
+		{
+			Sprite sprite = model.sprites.get(i);
+			sprite.draw(g, room_x, room_y);
+		}
+	}
+	
+	static BufferedImage loadImage(String filename) {
+		BufferedImage image = null;
+		try {
+			image = ImageIO.read(new File(filename));
+			System.out.println(filename + " was loaded.");
+		} catch(Exception e) {
+			System.out.println("Error loading image!");
+			e.printStackTrace(System.err);
+			System.exit(1);;
+		}
+		return image;
+	}
+	
+	//CODE TO RESIZE SPRITES
+	public static BufferedImage resize(BufferedImage img, int newW, int newH) { 
+	    Image tmp = img.getScaledInstance(newW, newH, Image.SCALE_SMOOTH);
+	    BufferedImage dimg = new BufferedImage(newW, newH, BufferedImage.TYPE_INT_ARGB);
+
+	    Graphics2D g2d = dimg.createGraphics();
+	    g2d.drawImage(tmp, 0, 0, null);
+	    g2d.dispose();
+
+	    return dimg;
+	}  
+	
+}
+
+
+public class Boomerang extends Sprite{
+	
+	static BufferedImage[] boomerang_images = new BufferedImage[4];
+	int dir; // 0 up, 1 right, 2 down, 3 left
+	int speed = 5;
+	int currImage = dir*10;
+	
+	
+	public Boomerang (int x, int y, int dir) {
+		this.x = x;
+		this.y = y;
+		this.dir = dir;
+		this.w = 10;
+		this.h = 10;
+		
+		for(int i = 0; i < 4; i ++) {
+			if (boomerang_images[i] == null) boomerang_images[i] = View.loadImage("boomerang" + (i) + ".png");
+		}
+	}
+	
+	public void draw(Graphics g, int room_x, int room_y) {
+		int i = currImage/15;
+		g.drawImage(boomerang_images[i], x - room_x, y - room_y, null);
+	}
+
+	
+	public boolean update() {
+		if(dir == 0) {
+			this.y-=speed;
+		}
+		else if(dir == 1) {
+			this.x+=speed;
+		}
+		else if(dir == 2) {
+			this.y+=speed;
+		}
+		else if(dir == 3) {
+			this.x-=speed;
+		}
+		//making the boomerang pictures change slower
+		if(currImage == 45) currImage = 0;
+		else currImage ++;
+		return true;
+	}
+
+	
+	Json marshal() {
+		return null;
+	}
+	
+	@Override
+	public boolean isBoomerang() {
+		return true;
+	}
+
+}
+
+
+ public class Brick extends Sprite{
+
+	 static BufferedImage image;
+	
+	Brick (int x_pos, int y_pos) {
+		this.x = x_pos;
+		this.y = y_pos;
+		this.h = 50;
+		this.w = 50;
+	}
+	
+	@Override 
+	public String toString()
+	{
+		return "Brick (x,y) = (" + x + ", " + y + ")";
+	}
+	
+	public void main () {
+		
+	}
+	
+	// Marshals this object into a JSON DOM
+	Json marshal() {
+		Json ob = Json.newObject();
+		ob.add("x_pos", x);
+		ob.add("y_pos", y);
+		return ob;
+  }
+
+  //Unmarshaling constructor
+  public Brick(Json ob) {
+    x = (int)ob.getDouble("x_pos");
+    y = (int)ob.getDouble("y_pos");
+    w = 50;
+    h = 50;
+    if (image == null) {
+    	image = View.loadImage("brick.jpg");
+    }
+   }
+
+public void draw(Graphics g, int room_x, int room_y) {
+	g.drawImage(image, x - room_x, y - room_y, null);
+}
+
+public boolean update() {
+	return true;
+}
+
+@Override
+public boolean isBrick() {
+	return true;
+}
+
+}
+
+
+abstract class Sprite {
+	int x, y, w, h;
+	boolean isActive = true;
+	
+	public Sprite() {
+	}
+	
+	abstract public void draw(Graphics g, int room_x, int room_y);
+	abstract public boolean update();
+	abstract Json marshal();
+	
+	public boolean isLink() {
+		return false;
+	}
+	
+	public boolean isBrick() {
+		return false;
+	}
+	
+	public boolean isPot() {
+		return false;
+	}
+	
+	public boolean isBoomerang() {
+		return false;
+	}
+	
+}
+
+
+public class Pot extends Sprite{
+	
+	int currImage;
+	int delay = 100; //amount of time until shards fade
+	boolean isBroke = false;
+	boolean isSchmovin = false; //is the pot being moved
+	int dir;
+	int slideSpeed = 3;
+
+	 static BufferedImage[] image = new BufferedImage[2];
+			 boolean broken = false;
+		
+	Pot (int x_pos, int y_pos) {
+		this.x = x_pos;
+		this.y = y_pos;
+		this.h = 50;
+		this.w = 50;
+		this.currImage = 0;
+		
+			if (image[0] == null || image[1] == null) {
+				image[0] = View.loadImage("pot.png"); 
+				image[1] = View.loadImage("pot_broken.png");
+			}
+		
+	}
+	
+	public void potBreak() {
+		currImage = 1;
+		isBroke = true;
+	}
+	
+	public void potMovement(Link link) {
+		if(!isBroke) {
+			dir = link.dir;
+			isSchmovin = true;
+		}
+	}
+	
+	@Override 
+	public String toString()
+	{
+		return "Pot (x,y) = (" + x + ", " + y + ")";
+	}
+	
+	public void main () {
+		
+	}
+	
+	// Marshals this object into a JSON DOM
+	 Json marshal() {
+	     Json ob = Json.newObject();
+	     ob.add("x_pos", x);
+	     ob.add("y_pos", y);
+	     return ob;
+	 }
+
+	 //Unmarshalling constructor
+	 public Pot(Json ob) {
+	   x = (int)ob.getDouble("x_pos");
+	   y = (int)ob.getDouble("y_pos");
+	   w = 50;
+	   h = 50;
+	   if (image[0] == null || image[1] == null) {
+			image[0] = View.loadImage("pot.png"); 
+			image[1] = View.loadImage("pot_broken.png");
+		}
+	  }
+
+	public void draw(Graphics g, int room_x, int room_y) {
+		g.drawImage(image[currImage], x - room_x, y - room_y, null);
+	}
+	
+	public boolean update() {
+		if(isSchmovin) {
+			if(dir == 0) this.y-=slideSpeed;
+			else if(dir == 1) this.x+=slideSpeed;
+			else if(dir == 2) this.y+=slideSpeed;
+			else if(dir == 3) this.x-=slideSpeed;
+		}
+		if(isBroke) {
+			isSchmovin = false;
+			delay--;
+		}
+		if(delay <= 0) {
+			return false;
+		}
+		return true;
+	}
+	
+	@Override
+	public boolean isPot() {
+		return true;
+	}
+	
+
+}
+
+
+ public class Link extends Sprite{
+
+	int pX, pY;
+	int speed = 10;
+	int currImage = 0;
+	static BufferedImage[] link_images = new BufferedImage[50];
+	int dir = 2; // 0 up, 1 right, 2 down, 3 left
+	
+	public Link (int x, int y) {
+		
+		this.x = x;
+		this.y = y;
+		this.w = 45;
+		this.h = 45;
+		
+		for(int i = 1; i < 51; i ++) {
+			if(link_images[i-1] == null) {
+			link_images[i-1] = View.loadImage("link_images\\link (" + (i) + ").png"); 
+			link_images[i-1] = View.resize(link_images[i-1], w, h);
+			}
+		}
+	}
+	
+	public void repelLink(Sprite sprite) {
+		if(x+w >= sprite.x && pX <= sprite.x) {
+//			System.out.println("Pushed left");
+			x=pX; 
+//			y=pY;
+		}
+		if(x <= sprite.x+50 && pX >= sprite.x + 50) {
+			//System.out.println("push right");
+			x=pX;//-pX%50; //for cleaner wall contact
+//			y=pY;
+		}
+		if(y >= sprite.y-50 && pY <= sprite.y-50) {
+//			System.out.println("push up");
+			y=pY;
+//			x=pX;
+		}
+		if(y-h <= sprite.y && pY >= sprite.y + 50) {
+//			System.out.println("push down");
+			y=pY;
+//			x=pX;
+		}
+	}
+	
+	public void getPrevious() {
+		pX = x;
+		pY = y;
+	}
+	
+	@Override 
+	public String toString()
+	{
+		return "Brick (x,y) = (" + x + ", " + y + ")";
+	}
+	
+	/* Image Notes
+	 * Forward link 4-13
+	 * Left link 14-23
+	 * Right link 30-39
+	 * Back link 42-50
+	 * Neutral forw 1-3
+	 * Back noot 40-41
+	 * Left noot 24-26
+	 * Right noot 27-29
+	 */
+
+	@Override
+	public boolean isLink() {
+		return true;
+	}
+
+	public void draw(Graphics g, int room_x, int room_y) {
+		g.drawImage(link_images[currImage], this.x - room_x, this.y - room_y, null);		
+	}
+
+	public boolean update() {
+		return true;
+	}
+
+	Json marshal() {
+		Json ob = Json.newObject();
+		ob.add("linkX", x);
+		ob.add("linkY", y);
+		return ob;
+	}
+	
+	
+}
